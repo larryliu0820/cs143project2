@@ -131,7 +131,26 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 {
   /* your code here */
-
+    RecordFile* rf=new RecordFile(table + ".tbl", 'w');
+    ifstream in;
+    in.open(loadfile.c_str());
+    /*if(!in.is_open())
+     {
+     cout << "Error opening file";
+     exit(1);
+     }*/
+    string buffer;
+    while (in.good() && getline(in,buffer)) {
+        int key;
+        int value;
+        RecordId id;
+        
+        parseLoadLine(buffer,key,value);
+        //write the key,value pair into Recordfile
+        rf.append(key,value,id);
+    }
+    rf.close();
+    
   return 0;
 }
 
