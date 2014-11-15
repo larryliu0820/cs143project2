@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <string>
 #include "Bruinbase.h"
 #include "SqlEngine.h"
 
@@ -132,25 +133,24 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 {
   /* your code here */
     RecordFile* rf=new RecordFile(table + ".tbl", 'w');
-    ifstream in;
-    in.open(loadfile.c_str());
-    /*if(!in.is_open())
-     {
-     cout << "Error opening file";
-     exit(1);
-     }*/
+    ifstream in(loadfile.c_str());
+    if(!in.is_open())
+    {
+        cout << "Error opening file";
+        exit(1);
+    }
     string buffer;
     while (in.good() && getline(in,buffer)) {
         int key;
-        int value;
+        string value;
         RecordId id;
         
         parseLoadLine(buffer,key,value);
         //write the key,value pair into Recordfile
-        rf.append(key,value,id);
+        rf ->append(key,value,id);
     }
-    rf.close();
-    
+    rf ->close();
+
   return 0;
 }
 
