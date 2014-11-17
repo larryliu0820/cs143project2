@@ -147,9 +147,14 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         
         parseLoadLine(buffer,key,value);
         //write the key,value pair into Recordfile
-        rf ->append(key,value,id);
+        rf->append(key,value,id);
+        if(index == true) {
+          //look at what RecordId is returned from RecordFile::append()
+          fprintf(stdout, "RecordId: pid = %d, sid = %d\n", id.pid, id.sid);
+          fprintf(stdout, "key: %d\n", key);
+        }
     }
-    rf ->close();
+    rf->close();
 
   return 0;
 }

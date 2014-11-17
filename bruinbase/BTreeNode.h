@@ -18,6 +18,7 @@
  */
 class BTLeafNode {
   public:
+    static const int MAX_KEY_NUM = 84; 
    /**
     * Insert the (key, rid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -66,7 +67,6 @@ class BTLeafNode {
     */
     PageId getNextNodePtr();
 
-
    /**
     * Set the next slibling node PageId.
     * @param pid[IN] the PageId of the next sibling node 
@@ -80,6 +80,29 @@ class BTLeafNode {
     */
     int getKeyCount();
  
+   /**
+    * Set the number of keys stored in the node.
+    * @param count[IN] the key count to be written in buffer.
+    * @return 0 if successful. Return an error code if there is an error.
+    */
+    RC setKeyCount(int count);
+
+   /**
+    * Return the pointer to the new entry in the buffer.
+    * @param n[IN] the key count to be written in buffer.
+    * @return the pointer.
+    */
+    char* entryPtr(int eid);
+
+   /**
+    * Write an entry to a given position in the buffer.
+    * @param ptr[IN] the pointer pointing to the position to insert a new entry.
+    * @param key[IN] the key to be inserted to buffer.
+    * @param rid[IN] the RecordId to be inserted to buffer.
+    * @return 0 if successful, return an error code if error occurs.
+    */
+    RC writeToPtr(char* ptr, int key, const RecordId& rid);
+
    /**
     * Read the content of the node from the page pid in the PageFile pf.
     * @param pid[IN] the PageId to read
@@ -110,6 +133,7 @@ class BTLeafNode {
  */
 class BTNonLeafNode {
   public:
+    static const int MAX_KEY_NUM = 127;
    /**
     * Insert a (key, pid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -157,6 +181,38 @@ class BTNonLeafNode {
     * @return the number of keys in the node
     */
     int getKeyCount();
+
+    /**
+    * Set the number of keys stored in the node.
+    * @param count[IN] the key count to be written in buffer.
+    * @return 0 if successful. Return an error code if there is an error.
+    */
+    RC setKeyCount(int count);
+
+   /**
+    * Return the pointer to the new entry in the buffer.
+    * @param n[IN] the key count to be written in buffer.
+    * @return the pointer.
+    */
+    char* entryPtr(int eid);
+
+   /**
+    * Write an entry to a given position in the buffer.
+    * @param ptr[IN] the pointer pointing to the position to insert a new entry.
+    * @param key[IN] the key to be inserted to buffer.
+    * @param rid[IN] the RecordId to be inserted to buffer.
+    * @return 0 if successful, return an error code if error occurs.
+    */
+    RC writeToPtr(char* ptr, int key, const RecordId& rid);
+
+    /**
+    * Read the (key, rid) pair from the eid entry.
+    * @param eid[IN] the entry number to read the (key, rid) pair from
+    * @param key[OUT] the key from the slot
+    * @param rid[OUT] the RecordId from the slot
+    * @return 0 if successful. Return an error code if there is an error.
+    */
+    RC readEntry(int eid, int& key, RecordId& rid);
 
    /**
     * Read the content of the node from the page pid in the PageFile pf.

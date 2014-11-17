@@ -17,6 +17,7 @@ using namespace std;
  */
 BTreeIndex::BTreeIndex()
 {
+    fd = -1;
     rootPid = -1;
 }
 
@@ -29,7 +30,8 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
-    return 0;
+    indexName = indexname;
+    return pf.open(indexname, mode);
 }
 
 /*
@@ -38,7 +40,7 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
-    return 0;
+    return pf.close();
 }
 
 /*
@@ -49,6 +51,15 @@ RC BTreeIndex::close()
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
 {
+    RC rc;
+    char page[PageFile::PAGE_SIZE];
+    IndexCursor cursor;
+    //Find the leaf-node index entry and insert the node (key, rid)
+    locate(key, cursor);
+    //IndexCursor contains PageId pid and entry number eid
+    if((rc = pf.read(cursor.pid, page))<0) return rc;
+    fprintf(stdout, "Page: %s\n",page);
+    //
     return 0;
 }
 
@@ -73,6 +84,10 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
  */
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
+    ifstream in((indexName+".meta").c_str());
+    if (in) {
+        
+    }
     return 0;
 }
 
