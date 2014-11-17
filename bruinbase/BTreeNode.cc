@@ -322,10 +322,10 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  */
  RC BTNonLeafNode::writeToPtr(char* ptr, int key, const PageId& pid)
  {
- 	//store the key
- 	memcpy(ptr, &key, sizeof(int));
  	//store the PageId
- 	memcpy(ptr + sizeof(int), &pid, sizeof(PageId));
+ 	memcpy(ptr, &pid, sizeof(PageId));
+ 	//store the key
+ 	memcpy(ptr + sizeof(PageId), &key, sizeof(int));
  	return 0;
  }
 
@@ -351,8 +351,8 @@ RC BTNonLeafNode::readEntry(int eid, int& key, PageId& pid)
 	// get to the location in buffer
 	char *ptr = entryPtr(eid);
 	// read key first, then pid
-	memcpy(&key, ptr, sizeof(int));
-	memcpy(&pid, ptr + sizeof(int), sizeof(PageId));
+	memcpy(&pid, ptr, sizeof(PageId));
+	memcpy(&key, ptr + sizeof(PageId), sizeof(int));
 	return 0; 
 }
 
@@ -400,8 +400,12 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
 	int eid = 0;
 	int tempKey;
 	int count = getKeyCount();
+	int i = 0;
+	// read key from each entry in the node
 	readEntry(eid, tempKey, pid);
-	while()
+	while(tempKey < searchKey && i < count) {
+
+	}
 	return 0; 
 }
 
