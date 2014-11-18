@@ -85,7 +85,9 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
     ifstream in((indexName+".meta").c_str());
-    if (in) {
+    if (in) { // if the meta file exists, read root pid and tree height
+        
+    } else { // if the meta file doesn't exists, create one
         
     }
     return 0;

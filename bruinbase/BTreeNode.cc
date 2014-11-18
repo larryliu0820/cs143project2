@@ -73,9 +73,9 @@ char* BTLeafNode::entryPtr(int eid)
  RC BTLeafNode::writeToPtr(char* ptr, int key, const RecordId& rid)
  {
  	//store the key
- 	memcpy(ptr, &key, sizeof(int));
+ 	memcpy(ptr, &rid, sizeof(RecordId));
  	//store the RecordId
- 	memcpy(ptr + sizeof(int), &rid, sizeof(RecordId));
+ 	memcpy(ptr + sizeof(RecordId), &key, sizeof(int));
  	return 0;
  }
 
