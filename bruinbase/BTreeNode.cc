@@ -38,7 +38,7 @@ int BTLeafNode::getKeyCount()
 {
 	// the first four bytes of a page contains # keys in the page
 	int count;
-	memcpy(buffer, &count, sizeof(int)); 
+	memcpy(&count, buffer, sizeof(int)); 
 	return count; 
 }
 
@@ -400,11 +400,10 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
 	int eid = 0;
 	int tempKey;
 	int count = getKeyCount();
-	int i = 0;
 	// read key from each entry in the node
 	readEntry(eid, tempKey, pid);
-	while(tempKey < searchKey && i < count) {
-
+	while(tempKey < searchKey && eid < count) {
+		readEntry(++eid, tempKey, pid);
 	}
 	return 0; 
 }
@@ -417,4 +416,7 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
-{ return 0; }
+{ 
+	
+	return 0; 
+}
