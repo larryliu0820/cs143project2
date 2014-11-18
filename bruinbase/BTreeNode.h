@@ -203,7 +203,7 @@ class BTNonLeafNode {
     * @param rid[IN] the RecordId to be inserted to buffer.
     * @return 0 if successful, return an error code if error occurs.
     */
-    RC writeToPtr(char* ptr, int key, const RecordId& rid);
+    RC writeToPtr(char* ptr, int key, const PageId& pid);
 
     /**
     * Read the (key, rid) pair from the eid entry.
@@ -212,7 +212,7 @@ class BTNonLeafNode {
     * @param rid[OUT] the RecordId from the slot
     * @return 0 if successful. Return an error code if there is an error.
     */
-    RC readEntry(int eid, int& key, RecordId& rid);
+    RC readEntry(int eid, int& key, PageId& pid);
 
    /**
     * Read the content of the node from the page pid in the PageFile pf.

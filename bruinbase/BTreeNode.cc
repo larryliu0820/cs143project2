@@ -103,7 +103,7 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 		// how many keys are bigger than key
 		int remain = count - number;
 		// copy the remaining entries into buf
-		size_t remainSize = (sizeof(int) + sizeof(RecordId)) * remain + sizeof(int)
+        size_t remainSize = (sizeof(int) + sizeof(RecordId)) * remain + sizeof(int);
 		char buf[remainSize];
 		memcpy(buf, ptr, remainSize);
 		// write the new entry into buffer
@@ -295,11 +295,11 @@ RC BTNonLeafNode::insert(int key, PageId pid)
 		char* ptr = entryPtr(0);
 		int number = 0;
 		// find out where the key should be inserted
-		locate(key, number);
+		locateChildPtr(key, number);
 		// how many keys are bigger than key
 		int remain = count - number;
 		// copy the remaining entries into buf
-		size_t remainSize = sizeof(int) * 2 * remain + sizeof(int)
+        size_t remainSize = sizeof(int) * 2 * remain + sizeof(int);
 		char buf[remainSize];
 		memcpy(buf, ptr, remainSize);
 		// write the new entry into buffer
