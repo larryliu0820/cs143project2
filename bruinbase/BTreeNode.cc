@@ -163,16 +163,15 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 	RC rc;
 	int temp;
 	RecordId rid;
-	int number = 0;
+	eid = 0;
 	int keyCount = getKeyCount();
 	// get the first key
-	readEntry(number, temp, rid);
-	while(temp < searchKey && number < keyCount) {
-		number++;
-		readEntry(number, temp, rid);
+	readEntry(eid, temp, rid);
+	while(temp < searchKey && eid < keyCount) {
+		readEntry(++eid, temp, rid);
 	}
-	// set eid = number
-	eid = number;
+	if(eid == keyCount)
+		return RC_NO_SUCH_RECORD
 	// if no key is larger than searchKey, return 
 	return 0;
 }
@@ -263,7 +262,7 @@ int BTNonLeafNode::getKeyCount()
 { 
 	// the first four bytes of a page contains # keys in the page
 	int count;
-	memcpy(buffer, &count, sizeof(int)); 
+	memcpy(&count, buffer, sizeof(int)); 
 	return count;  
 }
 
@@ -417,6 +416,15 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
 { 
-	
+	// set the key count to 1
+	setKeyCount(1);
+	// get the location of the first entry
+	char *ptr = entryPtr(0);
+	// write pid1, key
+	writeToPtr(ptr, key, pid1);
+	// get the location of the second entry
+	ptr = entryPtr(1);
+	// write pid2,
+	memcpy(ptr, &pid2, sizeof(PageId));
 	return 0; 
 }
