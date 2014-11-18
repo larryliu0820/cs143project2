@@ -171,7 +171,7 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 		readEntry(++eid, temp, rid);
 	}
 	if(eid == keyCount)
-		return RC_NO_SUCH_RECORD
+		return RC_NO_SUCH_RECORD;
 	// if no key is larger than searchKey, return 
 	return 0;
 }
