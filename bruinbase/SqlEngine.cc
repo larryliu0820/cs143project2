@@ -13,6 +13,7 @@
 #include <string>
 #include "Bruinbase.h"
 #include "SqlEngine.h"
+#include "BTreeIndex.h"
 
 using namespace std;
 
@@ -149,6 +150,9 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         //write the key,value pair into Recordfile
         rf->append(key,value,id);
         if(index == true) {
+            BTreeIndex btnode;
+            btnode.open("test.txt",'w');
+            btnode.close();
           //look at what RecordId is returned from RecordFile::append()
           fprintf(stdout, "RecordId: pid = %d, sid = %d\n", id.pid, id.sid);
           fprintf(stdout, "key: %d\n", key);

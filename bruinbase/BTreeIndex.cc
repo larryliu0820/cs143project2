@@ -75,7 +75,7 @@ RC BTreeIndex::writeRootAndHeight() {
  * Read rootPid and treeHeight from file.
  * @return error code, 0 if no error
  */
-RC BTreeInde::readRootAndHeight() {
+RC BTreeIndex::readRootAndHeight() {
     RC rc;
     // create a buffer in main memory
     char buffer[PageFile::PAGE_SIZE];
@@ -139,7 +139,7 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
         // get the returned sibling key
         int siblingKey;
         // call insertAndSplit
-        insertAndSplit(key, rid, siblingNode, siblingKey);
+        currNode.insertAndSplit(key, rid, siblingNode, siblingKey);
         // set the next pointer of currNode to siblingNode
         currNode.setNextNodePtr(pf.endPid());
         // store the page id of sibling node
@@ -171,7 +171,7 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
  *                    with the key value.
  * @return error code. 0 if no error.
  */
-RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId *path)
+RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
     RC rc;
     // initially cursor.pid = rootPid
