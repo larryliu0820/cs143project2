@@ -30,8 +30,61 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
-    indexName = indexname;
-    return pf.open(indexname, mode);
+    RC rc = pf.open(indexname, mode);
+    if(rc < 0) return rc;
+    switch(mode) {
+    case 'r':
+    case 'R': 
+        // read rootPid and treeHeight
+        return readRootAndHeight();
+    case 'w':
+    case 'W':
+    {
+        if(pf.endPid() == 0) {
+            // create new root page
+            rootPid = 1;
+            // set tree height to 0
+            treeHeight = 0;
+            // write the rootPid and treeHeight into file
+            return writeRootAndHeight();
+        }else
+            return readRootAndHeight();
+    }
+    default:
+        return RC_INVALID_FILE_MODE;
+    }
+}
+
+/*
+ * Write rootPid and treeHeight to file.
+ * @return error code, 0 if no error
+ */
+RC BTreeIndex::writeRootAndHeight() {
+    // create a buffer in main memory
+    char buffer[PageFile::PAGE_SIZE];
+    // initialize buffer to all 0
+    memset(buffer, 0, PageFile::PAGE_SIZE);
+    // make the root pid to be the last page id
+    memcpy(buffer, &rootPid, sizeof(PageId));
+    // set the tree height to be 0
+    memcpy(buffer + sizeof(PageId), &treeHeight, sizeof(int));
+    // write the buffer to the page file
+    return pf.write(0, buffer));
+}
+
+/*
+ * Read rootPid and treeHeight from file.
+ * @return error code, 0 if no error
+ */
+RC readRootAndHeight() {
+    // create a buffer in main memory
+    char buffer[PageFile::PAGE_SIZE];
+    // read out content from the first page
+    if((rc = pf.read(0, buffer)) < 0) return rc;
+    // copy root pid and tree height
+    memcpy(&rootPid, buffer, sizeof(PageId));
+    memcpy(&treeHeight, buffer + sizeof(PageId), sizeof(int));
+    return 0;
 }
 
 /*
@@ -53,13 +106,45 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
 {
     RC rc;
     char page[PageFile::PAGE_SIZE];
+    PageId nextPid = pf.endPid();
+    if(nextPid == 1) {// the index file is empty, need initialization
+        // update rootPid and treeHeight
+        rootPid = nextPid;
+        treeHeight = 1;
+        // create a leaf node as root node
+        BTLeafNode rootNode;
+        // read the new root node
+        if((rc = rootNode.read(nextPid, pf)) < 0) return rc;
+        // insert key and rid as the first entry
+        rootNode.insert(key, rid);
+        // set the next sibling node PageId
+        rootNode.setNextNodePtr(nextPid+1);
+        // write to file
+        rootNode.write(nextPid, pf);
+        // update rootPid and treeHeight to file
+        return writeRootAndHeight();
+    }
     IndexCursor cursor;
-    //Find the leaf-node index entry and insert the node (key, rid)
+    // Find the leaf-node index entry and insert the node (key, rid)
     locate(key, cursor);
-    //IndexCursor contains PageId pid and entry number eid
-    if((rc = pf.read(cursor.pid, page))<0) return rc;
-    fprintf(stdout, "Page: %s\n",page);
-    //
+    // read the page at cursor.pid as leaf node
+    BTLeafNode currNode;
+    if((rc = currNode.read(cursor.pid, pf)) < 0) return rc;
+
+    // check if eid is smaller than MAX_KEY_NUM
+    if(eid < BTLeafNode::MAX_KEY_NUM) {
+        currNode.insert(key, rid);
+    } else if(eid == BTLeafNode::MAX_KEY_NUM) {
+        // need a new leaf node to store the keys
+        BTLeafNode siblingNode;
+        // initialize sibling node, open a new page
+        siblingNode.read(pf.endPid(), pf);
+        // get the returned sibling key
+        int siblingKey;
+        // call insertAndSplit
+        insertAndSplit(key, rid, siblingNode, siblingKey);
+        // 
+    }
     return 0;
 }
 
@@ -84,11 +169,31 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
  */
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
-    ifstream in((indexName+".meta").c_str());
-    if (in) { // if the meta file exists, read root pid and tree height
-        
-    } else { // if the meta file doesn't exists, create one
-        
+    RC rc;
+    // initially cursor.pid = rootPid
+    cursor.pid = rootPid;
+    // read the root node into buffer
+    char page[PageFile::PAGE_SIZE];
+
+    while(true) {
+        if((rc = pf.read(cursor.pid, page)) < 0) return rc;
+        // check the first byte 
+        if(page[0] == 'L') {
+            // read the page into a leaf node
+            BTLeafNode leafNode;
+            if((rc = leafNode.read(cursor.pid, pf)) < 0) return rc;
+            // locate searchKey
+            return leafNode.locate(searchKey, cursor.eid);
+        } else if(page[0] == 'N') {
+            // read the page into a non-leaf node
+            BTNonLeafNode nonleafNode;
+            if((rc = nonleafNode.read(cursor.pid, pf)) < 0) return rc;
+            // locate child pointer
+            rc = nonleafNode.locateChildPtr(searchKey, cursor.pid);
+            if (rc < 0) return rc;
+        } else { // wrong page id
+            return RC_INVALID_PID;
+        }
     }
     return 0;
 }
@@ -103,5 +208,10 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
  */
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
+    // read the page as a leaf node
+    BTLeafNode currNode;
+    if((rc = currNode.read(cursor.pid, pf)) < 0) return rc;
+    // read the entry with eid
+    if((rc = currNode.readEntry(cursor.eid, key, rid)) < 0) return rc;
     return 0;
 }

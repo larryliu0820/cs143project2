@@ -25,7 +25,10 @@ RC BTLeafNode::read(PageId pid, const PageFile& pf)
 RC BTLeafNode::write(PageId pid, PageFile& pf)
 { 
 	RC rc;
-	//write the content in buffer into the page with PageId pid
+	// write the first byte to indicate this is a leaf node
+	char ind = 'L';
+	memcpy(buffer, &ind, sizeof(char));
+	// write the content in buffer into the page with PageId pid
 	if((rc = pf.write(pid, buffer)) < 0) return rc;
 	return 0; 
 }
@@ -38,7 +41,7 @@ int BTLeafNode::getKeyCount()
 {
 	// the first four bytes of a page contains # keys in the page
 	int count;
-	memcpy(&count, buffer, sizeof(int)); 
+	memcpy(&count, buffer + sizeof(char), sizeof(int)); 
 	return count; 
 }
 
@@ -50,7 +53,7 @@ int BTLeafNode::getKeyCount()
  RC BTLeafNode::setKeyCount(int count)
  {
  	//the first four bytes of a page contains # keys in the node/page.
- 	memcpy(buffer, &count, sizeof(int));
+ 	memcpy(buffer + sizeof(char), &count, sizeof(int));
  }
 
 /*
@@ -60,7 +63,7 @@ int BTLeafNode::getKeyCount()
  */
 char* BTLeafNode::entryPtr(int eid)
 {
-	return buffer + eid * (sizeof(int) + sizeof(RecordId)) + sizeof(int);
+	return buffer + eid * (sizeof(int) + sizeof(RecordId)) + sizeof(int) + sizeof(char);
 }
 
 /*
@@ -142,11 +145,17 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
 	setKeyCount(halfCount);
 	// update # of keys of the new node
 	sibling.setKeyCount(MAX_KEY_NUM - halfCount);
-	// insert the new key into the new node
-	sibling.insert(key, rid);
 	// find the first key in the sibling node after split
 	RecordId firstRid;
 	sibling.readEntry(0, siblingKey, firstRid);
+	// check if the key is smaller than siblingKey
+	if(key < siblingKey)
+		// insert into old node
+		insert(key, rid);
+	else
+		// insert the new key into the new node
+		sibling.insert(key, rid);
+	
 	return 0; 
 }
 
@@ -249,6 +258,9 @@ RC BTNonLeafNode::read(PageId pid, const PageFile& pf)
 RC BTNonLeafNode::write(PageId pid, PageFile& pf)
 { 
 	RC rc;
+	// write the first byte to indicate this is a non-leaf node
+	char ind = 'N';
+	memcpy(buffer, &ind, sizeof(char));
 	//write the content in buffer into the page with PageId pid
 	if((rc = pf.write(pid, buffer)) < 0) return rc;
 	return 0; 
@@ -262,7 +274,7 @@ int BTNonLeafNode::getKeyCount()
 { 
 	// the first four bytes of a page contains # keys in the page
 	int count;
-	memcpy(&count, buffer, sizeof(int)); 
+	memcpy(&count, buffer + sizeof(char), sizeof(int)); 
 	return count;  
 }
 
@@ -274,7 +286,7 @@ int BTNonLeafNode::getKeyCount()
  RC BTNonLeafNode::setKeyCount(int count)
  {
  	//the first four bytes of a page contains # keys in the node/page.
- 	memcpy(buffer, &count, sizeof(int));
+ 	memcpy(buffer + sizeof(char), &count, sizeof(int));
  }
 
 /*
@@ -335,7 +347,7 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  */
 char* BTNonLeafNode::entryPtr(int eid)
 {
-	return buffer + eid * (sizeof(int) + sizeof(PageId)) + sizeof(int);
+	return buffer + eid * (sizeof(int) + sizeof(PageId)) + sizeof(int) + sizeof(char);
 }
 
 /**
@@ -347,6 +359,8 @@ char* BTNonLeafNode::entryPtr(int eid)
 */
 RC BTNonLeafNode::readEntry(int eid, int& key, PageId& pid) 
 {
+	if(eid > getKeyCount())
+		return RC_INVALID_CURSOR;
 	// get to the location in buffer
 	char *ptr = entryPtr(eid);
 	// read key first, then pid
@@ -382,8 +396,13 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, in
 	setKeyCount(halfCount);
 	// update # of keys of the new node (we didn't insert the middle key)
 	sibling.setKeyCount(MAX_KEY_NUM - halfCount - 1);
-	// insert the new key into the new node
-	sibling.insert(key, pid);
+	// check if key is smaller than midKey
+	if(key < midKey) 
+		// insert the new key into the old node
+		insert(key, pid);
+	else
+		// insert the new key into the new node
+		sibling.insert(key, pid);
 	return 0; 
 }
 

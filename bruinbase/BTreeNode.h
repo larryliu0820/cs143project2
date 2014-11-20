@@ -133,7 +133,7 @@ class BTLeafNode {
  */
 class BTNonLeafNode {
   public:
-    static const int MAX_KEY_NUM = 127;
+    static const int MAX_KEY_NUM = 126;
    /**
     * Insert a (key, pid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
