@@ -1,7 +1,11 @@
 #include "BTreeNode.h"
+#include "PageFile.h"
 
 using namespace std;
-
+BTLeafNode::BTLeafNode()
+{
+    memset(buffer, 0, PageFile::PAGE_SIZE);
+}
 /*
  * Read the content of the node from the page pid in the PageFile pf.
  * @param pid[IN] the PageId to read
@@ -25,9 +29,6 @@ RC BTLeafNode::read(PageId pid, const PageFile& pf)
 RC BTLeafNode::write(PageId pid, PageFile& pf)
 { 
 	RC rc;
-	// write the first byte to indicate this is a leaf node
-	char ind = 'L';
-	memcpy(buffer, &ind, sizeof(char));
 	// write the content in buffer into the page with PageId pid
 	if((rc = pf.write(pid, buffer)) < 0) return rc;
 	return 0; 
@@ -41,7 +42,7 @@ int BTLeafNode::getKeyCount()
 {
 	// the first four bytes of a page contains # keys in the page
 	int count;
-	memcpy(&count, buffer + sizeof(char), sizeof(int)); 
+	memcpy(&count, buffer, sizeof(int));
 	return count; 
 }
 
@@ -53,7 +54,7 @@ int BTLeafNode::getKeyCount()
  RC BTLeafNode::setKeyCount(int count)
  {
  	//the first four bytes of a page contains # keys in the node/page.
- 	memcpy(buffer + sizeof(char), &count, sizeof(int));
+ 	memcpy(buffer, &count, sizeof(int));
  }
 
 /*
@@ -63,7 +64,7 @@ int BTLeafNode::getKeyCount()
  */
 char* BTLeafNode::entryPtr(int eid)
 {
-	return buffer + eid * (sizeof(int) + sizeof(RecordId)) + sizeof(int) + sizeof(char);
+	return buffer + eid * (sizeof(int) + sizeof(RecordId)) + sizeof(int);
 }
 
 /*
@@ -93,26 +94,30 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 	RC rc;
 	// get the number of keys in page
 	int count = getKeyCount();
+    printf("BTLeafNode::insert keyCount = %d\n", count);
 	// check if it exceeds MAX_KEY_NUM
 	if(count == MAX_KEY_NUM) {
 		return RC_NODE_FULL;
 	} else if(count < MAX_KEY_NUM) {
-		char* ptr = entryPtr(0);
-		int number = 0;
-
+		int eid = 0;
+        printf("BTLeafNode::insert key = %d\n", key);
 		// find out where the key should be inserted
-		locate(key, number);
-
+		locate(key, eid);
+        
+        char* ptr = entryPtr(eid);
+        
+        printf("BTLeafNode::insert eid = %d\n", eid);
 		// how many keys are bigger than key
-		int remain = count - number;
+		int remain = count - eid;
 		// copy the remaining entries into buf
-        size_t remainSize = (sizeof(int) + sizeof(RecordId)) * remain + sizeof(int);
+        size_t remainSize = (sizeof(int) + sizeof(RecordId)) * remain + sizeof(PageId);
 		char buf[remainSize];
 		memcpy(buf, ptr, remainSize);
 		// write the new entry into buffer
 		writeToPtr(ptr, key, rid);
 		// copy back from buf to buffer
 		memcpy(ptr + sizeof(int) + sizeof(RecordId), buf, remainSize);
+        printf("BTLeafNode::insert count= %d\n",count);
 		// increase the count of keys by 1
 		setKeyCount(count + 1);
 	}
@@ -170,14 +175,17 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
 RC BTLeafNode::locate(int searchKey, int& eid)
 { 
 	RC rc;
-	int temp;
+	int tempKey;
 	RecordId rid;
 	eid = 0;
 	int keyCount = getKeyCount();
+    printf("BTLeafNode::locate keyCount = %d\n", keyCount);
+    if (keyCount == 0)
+        return 0;
 	// get the first key
-	readEntry(eid, temp, rid);
-	while(temp < searchKey && eid < keyCount) {
-		readEntry(++eid, temp, rid);
+	readEntry(eid, tempKey, rid);
+	while(tempKey < searchKey && eid < keyCount) {
+		readEntry(++eid, tempKey, rid);
 	}
 	if(eid == keyCount)
 		return RC_NO_SUCH_RECORD;
@@ -197,8 +205,8 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
 	// get to the location in buffer
 	char *ptr = entryPtr(eid);
 	// read key first, then rid
-	memcpy(&key, ptr, sizeof(int));
-	memcpy(&rid, ptr + sizeof(int), sizeof(RecordId));
+	memcpy(&rid, ptr, sizeof(RecordId));
+	memcpy(&key, ptr + sizeof(RecordId), sizeof(int));
 	return 0; 
 }
 
@@ -235,6 +243,11 @@ RC BTLeafNode::setNextNodePtr(PageId pid)
 	return 0; 
 }
 
+BTNonLeafNode::BTNonLeafNode()
+{
+    memset(buffer, 0, PageFile::PAGE_SIZE);
+}
+
 /*
  * Read the content of the node from the page pid in the PageFile pf.
  * @param pid[IN] the PageId to read
@@ -258,9 +271,6 @@ RC BTNonLeafNode::read(PageId pid, const PageFile& pf)
 RC BTNonLeafNode::write(PageId pid, PageFile& pf)
 { 
 	RC rc;
-	// write the first byte to indicate this is a non-leaf node
-	char ind = 'N';
-	memcpy(buffer, &ind, sizeof(char));
 	//write the content in buffer into the page with PageId pid
 	if((rc = pf.write(pid, buffer)) < 0) return rc;
 	return 0; 
@@ -274,7 +284,7 @@ int BTNonLeafNode::getKeyCount()
 { 
 	// the first four bytes of a page contains # keys in the page
 	int count;
-	memcpy(&count, buffer + sizeof(char), sizeof(int)); 
+	memcpy(&count, buffer, sizeof(int));
 	return count;  
 }
 
@@ -286,7 +296,7 @@ int BTNonLeafNode::getKeyCount()
  RC BTNonLeafNode::setKeyCount(int count)
  {
  	//the first four bytes of a page contains # keys in the node/page.
- 	memcpy(buffer + sizeof(char), &count, sizeof(int));
+ 	memcpy(buffer, &count, sizeof(int));
  }
 
 /*
@@ -304,12 +314,12 @@ RC BTNonLeafNode::insert(int key, PageId pid)
 	if(count == MAX_KEY_NUM) {
 		return RC_NODE_FULL;
 	} else if(count < MAX_KEY_NUM) {
-		char* ptr = entryPtr(0);
-		int number = 0;
+		int eid = 0;
 		// find out where the key should be inserted
-		locateChildPtr(key, number);
+		locateChildPtr(key, eid);
+        char* ptr = entryPtr(eid);
 		// how many keys are bigger than key
-		int remain = count - number;
+		int remain = count - eid;
 		// copy the remaining entries into buf
         size_t remainSize = sizeof(int) * 2 * remain + sizeof(int);
 		char buf[remainSize];
@@ -347,7 +357,7 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  */
 char* BTNonLeafNode::entryPtr(int eid)
 {
-	return buffer + eid * (sizeof(int) + sizeof(PageId)) + sizeof(int) + sizeof(char);
+	return buffer + eid * (sizeof(int) + sizeof(PageId)) + sizeof(int);
 }
 
 /**

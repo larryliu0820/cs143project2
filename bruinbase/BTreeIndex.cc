@@ -9,6 +9,7 @@
  
 #include "BTreeIndex.h"
 #include "BTreeNode.h"
+#include <iostream>
 
 using namespace std;
 
@@ -107,20 +108,29 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     RC rc;
     char page[PageFile::PAGE_SIZE];
     PageId nextPid = pf.endPid();
+    printf("nextpid = %d\n",nextPid);
     if(nextPid == 1) {// the index file is empty, need initialization
         // update rootPid and treeHeight
         rootPid = nextPid;
         treeHeight = 1;
         // create a leaf node as root node
         BTLeafNode rootNode;
-        // read the new root node
-        if((rc = rootNode.read(nextPid, pf)) < 0) return rc;
         // insert key and rid as the first entry
         rootNode.insert(key, rid);
         // write to file
         rootNode.write(nextPid, pf);
         // update rootPid and treeHeight to file
-        return writeRootAndHeight();
+        rc = writeRootAndHeight();
+        // testing read from .tbl
+        printf("key count = %d\n", rootNode.getKeyCount());
+        // read keys
+        for (int i = 0; i < rootNode.getKeyCount(); i ++) {
+            int key;
+            RecordId rid;
+            rootNode.readEntry(i, key, rid);
+            cout<<i<<"th entry: \t"<<"key = "<<key<<"\trecordId.pid = "<<rid.pid<<"\trecordId.sid"<<rid.sid<<endl;
+        }
+        return 0;
     }
     IndexCursor cursor;
     // Find the leaf-node index entry and insert the node (key, rid)
@@ -131,6 +141,8 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     // check if # keys in currNode is smaller than MAX_KEY_NUM
     if(currNode.getKeyCount() < BTLeafNode::MAX_KEY_NUM) {
         currNode.insert(key, rid);
+        // write changes to file
+        currNode.write(cursor.pid, pf);
     } else if(currNode.getKeyCount() == BTLeafNode::MAX_KEY_NUM) {
         // need a new leaf node to store the keys
         BTLeafNode siblingNode;

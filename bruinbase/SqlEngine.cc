@@ -141,6 +141,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         exit(1);
     }
     string buffer;
+    BTreeIndex btnode;
     while (in.good() && getline(in,buffer)) {
         int key;
         string value;
@@ -150,8 +151,8 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         //write the key,value pair into Recordfile
         rf->append(key,value,id);
         if(index == true) {
-            BTreeIndex btnode;
-            btnode.open("test.txt",'w');
+            btnode.open(table + ".index",'w');
+            btnode.insert(key,id);
             btnode.close();
           //look at what RecordId is returned from RecordFile::append()
           fprintf(stdout, "RecordId: pid = %d, sid = %d\n", id.pid, id.sid);
@@ -159,7 +160,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         }
     }
     rf->close();
-
+    
   return 0;
 }
 
