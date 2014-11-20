@@ -41,7 +41,7 @@ class BTLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC insertAndSplit(int key, const RecordId& rid, BTLeafNode& sibling, int& siblingKey);
-
+    RC insertAtEid(int key, PageId& pid, int& eid);
    /**
     * Find the index entry whose key value is larger than or equal to searchKey
     * and output the eid (entry id) whose key value &gt;= searchKey.
@@ -135,7 +135,7 @@ class BTLeafNode {
 class BTNonLeafNode {
   public:
     BTNonLeafNode();
-    static const int MAX_KEY_NUM = 126;
+    static const int MAX_KEY_NUM = 127;
    /**
     * Insert a (key, pid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -158,7 +158,7 @@ class BTNonLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, int& midKey);
-
+    RC insertAtEid(int key, PageId& pid, int& eid);
    /**
     * Given the searchKey, find the child-node pointer to follow and
     * output it in pid.
@@ -167,7 +167,7 @@ class BTNonLeafNode {
     * @param pid[OUT] the pointer to the child node to follow.
     * @return 0 if successful. Return an error code if there is an error.
     */
-    RC locateChildPtr(int searchKey, PageId& pid);
+    RC locateChildPtr(int searchKey, PageId& pid, int& eid);
 
    /**
     * Initialize the root node with (pid1, key, pid2).

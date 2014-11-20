@@ -58,6 +58,12 @@ class BTreeIndex {
    */
   RC insert(int key, const RecordId& rid);
 
+  RC insertAndSplit(BTLeafNode& currNode, PageId& currPid, int& key, const RecordId& rid);
+  RC insertAndSplit(BTNonLeafNode& currNode, PageId& currPid, int& key);
+
+  RC initializeRoot(const PageId& currPid, int key, const PageId& siblingPid);
+
+  RC recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pid, int& eid, int level);
   /**
    * Find the leaf-node index entry whose key value is larger than or
    * equal to searchKey and output its location (i.e., the page id of the node
@@ -101,7 +107,7 @@ class BTreeIndex {
     * @return error code, 0 if no error
     */
   RC readRootAndHeight();
-  
+
  private:
   PageFile pf;         /// the PageFile used to store the actual b+tree in disk
 

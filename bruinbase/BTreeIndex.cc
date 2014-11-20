@@ -132,36 +132,124 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
         }
         return 0;
     }
-    IndexCursor cursor;
-    // Find the leaf-node index entry and insert the node (key, rid)
-    locate(key, cursor);
-    // read the page at cursor.pid as leaf node
-    BTLeafNode currNode;
-    if((rc = currNode.read(cursor.pid, pf)) < 0) return rc;
-    // check if # keys in currNode is smaller than MAX_KEY_NUM
-    if(currNode.getKeyCount() < BTLeafNode::MAX_KEY_NUM) {
-        currNode.insert(key, rid);
-        // write changes to file
-        currNode.write(cursor.pid, pf);
-    } else if(currNode.getKeyCount() == BTLeafNode::MAX_KEY_NUM) {
-        // need a new leaf node to store the keys
-        BTLeafNode siblingNode;
-        // initialize sibling node, open a new page
-        siblingNode.read(pf.endPid(), pf);
-        // get the returned sibling key
-        int siblingKey;
-        // call insertAndSplit
-        currNode.insertAndSplit(key, rid, siblingNode, siblingKey);
-        // set the next pointer of currNode to siblingNode
-        currNode.setNextNodePtr(pf.endPid());
-        // store the page id of sibling node
-        PageId siblingPid = pf.endPid();
-        // write changes to file
-        currNode.write(cursor.pid, pf);
-        siblingNode.write(siblingPid, pf);
-        // now we have siblingKey and siblingPid, we can insert it to parent node
+    int eid;
+    return recursivelyInsert(key, rid, rootPid, eid, treeHeight);
+}
+
+RC BTreeIndex::insertAndSplit(BTLeafNode& currNode, PageId& currPid, int eid, int& key, const RecordId& rid) {
+    // need a new leaf node to store the keys
+    BTLeafNode siblingNode;
+    // store the page id of sibling node
+    PageId siblingPid = pf.endPid();
+    // get the returned sibling key
+    int siblingKey;
+    // call insertAndSplit
+    currNode.insertAndSplit(key, rid, eid, siblingNode, siblingKey);
+    // set the next pointer of currNode to siblingNode
+    currNode.setNextNodePtr(siblingPid);
+    // write changes to file
+    currNode.write(currPid, pf);
+    siblingNode.write(siblingPid, pf);
+    // now we have siblingKey and siblingPid, we can insert it to parent node
+
+    // if there is no non-leaf node exists, initialize root
+    if(treeHeight == 1) 
+        initializeRoot(currPid, key, siblingPid);
+    currPid = siblingPid;
+    key = siblingKey;
+}
+
+RC BTreeIndex::insertAndSplit(BTNonLeafNode& currNode, PageId& currPid, int eid, int& key, const PageId& pid) {
+    // need a new non leaf node to store the keys
+    BTNonLeafNode siblingNode;
+    // store the page id of sibling node
+    PageId siblingPid = pf.endPid();
+    // get the returned mid key
+    int midKey;
+    // call insertAndSplit
+    currNode.insertAndSplit(key, pid, eid, siblingNode, midKey);
+    // set the next pointer of currNode to siblingNode
+    currNode.setNextNodePtr(siblingPid);
+    // write changes to file
+    currNode.write(currPid, pf);
+    siblingNode.write(siblingPid, pf);
+    // now we have midKey and siblingPid, we can insert it to parent node
+
+    // if we need a new root, initialize a root
+    if(currPid == rootPid) 
+        initializeRoot(currPid, key, siblingPid);
+    currPid = siblingPid;
+    key = midKey;
+}
+
+RC BTreeIndex::initializeRoot(const PageId& currPid, int key, const PageId& siblingPid) {
+    // create a new non-leaf node as root
+    BTNonLeafNode rootNode;
+    // get a new pid as root pid
+    rootPid = pf.endPid();
+    treeHeight++;
+    // initialize the root
+    rootNode.initializeRoot(currPid, key, siblingPid);
+    // write changes to file
+    rootNode.write(rootPid, pf);
+    // update root and tree height
+    writeRootAndHeight();
+}
+
+RC BTreeIndex::recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pid, int& eid, int level)
+{
+    RC rc;
+    // store current pid
+    PageId currPid = pid;
+    // base case: insert into leaf node
+    if(level == 1) {
+        // this is the leaf level
+        BTLeafNode leafNode;
+        // read the page into a leaf node
+        if((rc = leafNode.read(pid, pf)) < 0) return rc;
+        // find eid
+        leafNode.locate(searchKey, eid);
+        // insert the key
+        if(leafNode.getKeyCount() == BTLeafNode::MAX_KEY_NUM) {
+            // need to split
+            insertAndSplit(leafNode, pid, eid, searchKey, rid);
+            // if this level is full, return rc
+            return RC_NODE_FULL;
+        } else {
+            // insert
+            leafNode.insertAtEid(key, rid, eid);
+            // write changes to file
+            leafNode.write(currPid, pf);
+            return 0;
+        }
     }
-    return 0;
+    // read the page into a non-leaf node
+    BTNonLeafNode nonleafNode;
+
+    if((rc = nonleafNode.read(currPid, pf)) < 0) return rc;
+    // locate child pointer
+    rc = nonleafNode.locateChildPtr(searchKey, pid, eid);
+    if (rc < 0) return rc;
+    // recursively go down a level
+    rc = recursivelyInsert(searchKey, rid, pid, eid, level - 1);
+    // check if the next level is full
+    if(rc == RC_NODE_FULL) {
+        // need insert into this node
+        if(nonleafNode.getKeyCount() == BTNonLeafNode::MAX_KEY_NUM) {
+            // need to split
+            insertAndSplit(nonleafNode, currPid, eid, searchKey, pid);
+            pid = currPid;
+            // if this level is full, return rc
+            return RC_NODE_FULL;
+        } else {
+            // insert
+            nonleafNode.insertAtEid(searchKey, pid, eid);
+            // write changes to file
+            nonleafNode.write(currPid, pf);
+            return 0;
+        }
+    } else
+        return rc;
 }
 
 /*
@@ -191,25 +279,22 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
     // read the root node into buffer
     char page[PageFile::PAGE_SIZE];
 
-    while(true) {
-        if((rc = pf.read(cursor.pid, page)) < 0) return rc;
-        // check the first byte 
-        if(page[0] == 'L') {
+    int currLevel = 1;
+    for(; currLevel < treeHeight + 1; currLevel++) {
+        // now cursor.pid is the pid of a node at nth level
+        if(currLevel == treeHeight) { // if we want to locate the key at leaf nodes
             // read the page into a leaf node
             BTLeafNode leafNode;
             if((rc = leafNode.read(cursor.pid, pf)) < 0) return rc;
             // locate searchKey
             return leafNode.locate(searchKey, cursor.eid);
-        } else if(page[0] == 'N') {
-            // read the page into a non-leaf node
-            BTNonLeafNode nonleafNode;
-            if((rc = nonleafNode.read(cursor.pid, pf)) < 0) return rc;
-            // locate child pointer
-            rc = nonleafNode.locateChildPtr(searchKey, cursor.pid);
-            if (rc < 0) return rc;
-        } else { // wrong page id
-            return RC_INVALID_PID;
-        }
+        } 
+        // read the page into a non-leaf node
+        BTNonLeafNode nonleafNode;
+        if((rc = nonleafNode.read(cursor.pid, pf)) < 0) return rc;
+        // locate child pointer
+        rc = nonleafNode.locateChildPtr(searchKey, cursor.pid, cursor.eid);
+        if (rc < 0) return rc;
     }
     return 0;
 }
