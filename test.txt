@@ -1,0 +1,4 @@
+load larry from 'movie.del' with index
+load larry from 'test.del' with index 
+load larry from 'test2.del' with index
+load larry from 'test3.del' with index
