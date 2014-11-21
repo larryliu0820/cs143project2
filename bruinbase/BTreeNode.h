@@ -18,7 +18,7 @@
  */
 class BTLeafNode {
   public:
-    static const int MAX_KEY_NUM = 84;
+    static const int MAX_KEY_NUM = 3;
     BTLeafNode();
    /**
     * Insert the (key, rid) pair to the node.
