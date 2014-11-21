@@ -169,7 +169,7 @@ RC BTreeIndex::insertAndSplit(BTNonLeafNode& currNode, PageId& currPid, int eid,
     // call insertAndSplit
     currNode.insertAndSplit(key, pid, eid, siblingNode, midKey);
     // set the next pointer of currNode to siblingNode
-    currNode.setNextNodePtr(siblingPid);
+    //currNode.setNextNodePtr(siblingPid);
     // write changes to file
     currNode.write(currPid, pf);
     siblingNode.write(siblingPid, pf);
@@ -217,7 +217,7 @@ RC BTreeIndex::recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pi
             return RC_NODE_FULL;
         } else {
             // insert
-            leafNode.insertAtEid(key, rid, eid);
+            leafNode.insertAtEid(searchKey, rid, eid);
             // write changes to file
             leafNode.write(currPid, pf);
             return 0;

@@ -112,6 +112,8 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 RC BTLeafNode::insertAtEid(int key, const RecordId& rid, int eid) {
 	// get the location of eid th entry
 	char* ptr = entryPtr(eid);
+    // get the number of keys in page
+    int count = getKeyCount();
 	// how many keys are bigger than key
 	int remain = count - eid;
 	// copy the remaining entries into buf
@@ -409,9 +411,11 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, int eid,
 	return 0; 
 }
 
-RC BTNonLeafNode::insertAtEid(int key, PageId pid, int eid) {
+RC BTNonLeafNode::insertAtEid(int key, PageId& pid, int& eid) {
 	// get the location of eid th entry
 	char* ptr = entryPtr(eid);
+    // get the number of keys in page
+    int count = getKeyCount();
 	// how many keys are bigger than key
 	int remain = count - eid;
 	// copy the remaining entries into buf
@@ -435,7 +439,7 @@ RC BTNonLeafNode::insertAtEid(int key, PageId pid, int eid) {
  */
 RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid, int& eid)
 { 
-	int eid = 0;
+	eid = 0;
 	int tempKey;
 	int count = getKeyCount();
 	// read key from each entry in the node

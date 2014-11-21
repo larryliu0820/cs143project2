@@ -40,8 +40,8 @@ class BTLeafNode {
     * @param siblingKey[OUT] the first key in the sibling node after split.
     * @return 0 if successful. Return an error code if there is an error.
     */
-    RC insertAndSplit(int key, const RecordId& rid, BTLeafNode& sibling, int& siblingKey);
-    RC insertAtEid(int key, PageId& pid, int& eid);
+    RC insertAndSplit(int key, const RecordId& rid, int eid, BTLeafNode& sibling, int& siblingKey);
+    RC insertAtEid(int key, const RecordId& rid, int eid);
    /**
     * Find the index entry whose key value is larger than or equal to searchKey
     * and output the eid (entry id) whose key value &gt;= searchKey.
@@ -157,7 +157,7 @@ class BTNonLeafNode {
     * @param midKey[OUT] the key in the middle after the split. This key should be inserted to the parent node.
     * @return 0 if successful. Return an error code if there is an error.
     */
-    RC insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, int& midKey);
+    RC insertAndSplit(int key, PageId pid, int eid, BTNonLeafNode& sibling, int& midKey);
     RC insertAtEid(int key, PageId& pid, int& eid);
    /**
     * Given the searchKey, find the child-node pointer to follow and

@@ -13,6 +13,8 @@
 #include "Bruinbase.h"
 #include "PageFile.h"
 #include "RecordFile.h"
+#include "BTreeNode.h"
+#include <string>
              
 /**
  * The data structure to point to a particular entry at a b+tree leaf node.
@@ -58,8 +60,8 @@ class BTreeIndex {
    */
   RC insert(int key, const RecordId& rid);
 
-  RC insertAndSplit(BTLeafNode& currNode, PageId& currPid, int& key, const RecordId& rid);
-  RC insertAndSplit(BTNonLeafNode& currNode, PageId& currPid, int& key);
+  RC insertAndSplit(BTLeafNode& currNode, PageId& currPid, int eid, int& key, const RecordId& rid);
+  RC insertAndSplit(BTNonLeafNode& currNode, PageId& currPid, int eid, int& key, const PageId& pid);
 
   RC initializeRoot(const PageId& currPid, int key, const PageId& siblingPid);
 
