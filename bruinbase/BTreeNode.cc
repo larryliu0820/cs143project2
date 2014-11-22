@@ -126,6 +126,7 @@ RC BTLeafNode::insertAtEid(int key, const RecordId& rid, int eid) {
 	memcpy(ptr + sizeof(int) + sizeof(RecordId), buf, remainSize);
 	// increase the count of keys by 1
 	setKeyCount(count + 1);
+    printf("BTLeafNode::insertAtEid count=%d\n",getKeyCount());
 
 }
 /*
@@ -158,14 +159,17 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid, int eid,
 	RecordId firstRid;
 	sibling.readEntry(0, siblingKey, firstRid);
 	// check if the key is smaller than siblingKey
-	if(eid < MAX_KEY_NUM / 2)
+	if(eid <= MAX_KEY_NUM / 2)
 		// insert into old node
 		insertAtEid(key, rid, eid);
 	else
+    {
+//        printf("BTLeafNode::insertAndSplit: eid=%d\tkey=%d\n",eid,key);
 		// insert the new key into the new node
 		sibling.insertAtEid(key, rid, eid - MAX_KEY_NUM / 2);
+    }
 	
-	return 0; 
+	return 0;
 }
 
 /*
@@ -183,13 +187,15 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 	RecordId rid;
 	eid = 0;
 	int keyCount = getKeyCount();
-    printf("BTLeafNode::locate keyCount = %d\n", keyCount);
+    //printf("BTLeafNode::locate keyCount = %d\n", keyCount);
     if (keyCount == 0)
         return 0;
 	// get the first key
 	readEntry(eid, tempKey, rid);
+    //printf("BTLeafNode::locate tempKey = %d,\teid=%d\n", tempKey,eid);
 	while(tempKey < searchKey && eid < keyCount) {
 		readEntry(++eid, tempKey, rid);
+       //printf("BTLeafNode::locate tempKey = %d,\teid=%d\n", tempKey,eid);
 	}
 	if(eid == keyCount)
 		return RC_NO_SUCH_RECORD;
@@ -211,6 +217,7 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
 	// read key first, then rid
 	memcpy(&rid, ptr, sizeof(RecordId));
 	memcpy(&key, ptr + sizeof(RecordId), sizeof(int));
+    printf("BTLeafNode::readEntry: eid=%d\tkey=%d\n", eid, key);
 	return 0; 
 }
 
@@ -319,9 +326,9 @@ RC BTNonLeafNode::insert(int key, PageId pid)
 		return RC_NODE_FULL;
 	} else if(count < MAX_KEY_NUM) {
 		int eid = 0;
-		PageId pid;
+		PageId tempPid;
 		// find out where the key should be inserted
-		locateChildPtr(key, pid, eid);
+		locateChildPtr(key, tempPid, eid);
 		// insert at eid
         insertAtEid(key, pid, eid);
 	}
@@ -337,9 +344,9 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  */
  RC BTNonLeafNode::writeToPtr(char* ptr, int key, const PageId& pid)
  {
- 	//store the PageId
- 	memcpy(ptr, &key, sizeof(int));
  	//store the key
+ 	memcpy(ptr, &key, sizeof(int));
+ 	//store the page id
  	memcpy(ptr + sizeof(int), &pid, sizeof(PageId));
  	return 0;
  }
@@ -367,9 +374,11 @@ RC BTNonLeafNode::readEntry(int eid, int& key, PageId& pid)
 		return RC_INVALID_CURSOR;
 	// get to the location in buffer
 	char *ptr = entryPtr(eid);
-	// read key first, then pid
-	memcpy(&key, ptr - sizeof(int), sizeof(int));
-	memcpy(&pid, ptr, sizeof(PageId));
+  
+	// read pid first, then key
+	memcpy(&pid, ptr - sizeof(PageId), sizeof(PageId));
+	memcpy(&key, ptr, sizeof(int));
+    printf("BTNonLeafNode::readEntry: eid=%d\tpid=%d\tkey=%d\n", eid, pid, key);
 	return 0; 
 }
 
@@ -383,7 +392,7 @@ RC BTNonLeafNode::readEntry(int eid, int& key, PageId& pid)
  * @param midKey[OUT] the key in the middle after the split. This key should be inserted to the parent node.
  * @return 0 if successful. Return an error code if there is an error.
  */
-RC BTNonLeafNode::insertAndSplit(int key, PageId pid, int eid, 
+RC BTNonLeafNode::insertAndSplit(int key, PageId pid, int eid,
 								BTNonLeafNode& sibling, int& midKey)
 { 
 	// get the eid of half of the entries
@@ -395,31 +404,31 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, int eid,
 	// copy the second half to the new node except for the middle key
 	size_t secondSize = (MAX_KEY_NUM - halfCount - 1) * (sizeof(int) + sizeof(PageId));
 	memcpy(sibling.entryPtr(0), halfPtr + sizeof(PageId) + sizeof(int), secondSize);
-	// copy next node pointer to half point of the old node
-	memcpy(halfPtr, entryPtr(MAX_KEY_NUM), sizeof(int));
 	// update # of keys of the old node
 	setKeyCount(halfCount);
 	// update # of keys of the new node (we didn't insert the middle key)
 	sibling.setKeyCount(MAX_KEY_NUM - halfCount - 1);
 	// check if key is smaller than midKey
-	if(eid < MAX_KEY_NUM / 2) 
+    printf("hello\teid = %d\tkey = %d\tpid = %d\n",eid,key,pid);
+	if(eid <= MAX_KEY_NUM / 2)
 		// insert the new key into the old node
 		insertAtEid(key, pid, eid);
 	else
 		// insert the new key into the new node
-		sibling.insertAtEid(key, pid, eid);
+		sibling.insertAtEid(key, pid, (eid - MAX_KEY_NUM / 2 - 1));
 	return 0; 
 }
 
-RC BTNonLeafNode::insertAtEid(int key, PageId& pid, int& eid) {
+RC BTNonLeafNode::insertAtEid(int key, const PageId& pid, int eid) {
 	// get the location of eid th entry
 	char* ptr = entryPtr(eid);
     // get the number of keys in page
     int count = getKeyCount();
+    printf("count = %d\n",count);
 	// how many keys are bigger than key
 	int remain = count - eid;
 	// copy the remaining entries into buf
-    size_t remainSize = sizeof(int) * 2 * remain + sizeof(int);
+    size_t remainSize = (sizeof(int)+sizeof(PageId)) * remain;
 	char buf[remainSize];
 	memcpy(buf, ptr, remainSize);
 	// write the new entry into buffer
@@ -442,10 +451,13 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid, int& eid)
 	eid = 0;
 	int tempKey;
 	int count = getKeyCount();
+    //printf("BTNonLeafNode::locateChildPtr: count=%d\n",count);
 	// read key from each entry in the node
 	readEntry(eid, tempKey, pid);
+    //printf("BTNonLeafNode::locateChildPtr:pid = %d\n",pid);
 	while(tempKey < searchKey && eid < count) {
 		readEntry(++eid, tempKey, pid);
+        //printf("BTNonLeafNode::locateChildPtr:pid = %d\n",pid);
 	}
 	if(eid == count)
 		return RC_NO_SUCH_RECORD;
@@ -460,16 +472,15 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid, int& eid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
-{ 
+{
+    printf("BTNonLeafNode::initializeRoot: pid1=%d\tkey=%d\tpid2=%d\n",pid1,key,pid2);
 	// set the key count to 1
 	setKeyCount(1);
 	// get the location of the first entry
 	char *ptr = entryPtr(0);
 	// write pid1, key
-	writeToPtr(ptr, key, pid1);
-	// get the location of the second entry
-	ptr = entryPtr(1);
+	writeToPtr(ptr, key, pid2);
 	// write pid2,
-	memcpy(ptr, &pid2, sizeof(PageId));
+	memcpy(ptr - sizeof(PageId), &pid1, sizeof(PageId));
 	return 0; 
 }

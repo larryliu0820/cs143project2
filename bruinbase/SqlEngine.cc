@@ -146,6 +146,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         int key;
         string value;
         RecordId id;
+        IndexCursor cursor;
         
         parseLoadLine(buffer,key,value);
         //write the key,value pair into Recordfile
@@ -153,11 +154,24 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
         if(index == true) {
             btnode.open(table + ".index",'w');
             btnode.insert(key,id);
+            btnode.locate(key,cursor);
+            fprintf(stdout, "SqlEngine::load: cursor.pid: %d\n", cursor.pid);
+            fprintf(stdout, "SqlEngine::load: cursor.eid: %d\n", cursor.eid);
+            btnode.readForward(cursor,key,id);
+            fprintf(stdout, "SqlEngine::load: key: %d\n", key);
             btnode.close();
           //look at what RecordId is returned from RecordFile::append()
-          fprintf(stdout, "RecordId: pid = %d, sid = %d\n", id.pid, id.sid);
-          fprintf(stdout, "key: %d\n", key);
+          //fprintf(stdout, "RecordId: pid = %d, sid = %d\n", id.pid, id.sid);
+          //fprintf(stdout, "key: %d\n", key);
         }
+    }
+    BTreeIndex btindex;
+    int key;
+    IndexCursor cursor;
+    btindex.open(table+ ".index",'w');
+    for (key=1; key<=5; key++) {
+        btindex.locate(key,cursor);
+        printf("SqlEngine::load: key=%d\tcursor.pid=%d\tcursor.eid=%d\n",key,cursor.pid,cursor.eid);
     }
     rf->close();
     
