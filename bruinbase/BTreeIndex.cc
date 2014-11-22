@@ -85,6 +85,7 @@ RC BTreeIndex::readRootAndHeight() {
     // copy root pid and tree height
     memcpy(&rootPid, buffer, sizeof(PageId));
     memcpy(&treeHeight, buffer + sizeof(PageId), sizeof(int));
+    cout<<"BTreeIndex::readRootAndHeight: rootPid="<<rootPid<<"\ttreeHeight="<<treeHeight<<endl;
     return 0;
 }
 
@@ -153,7 +154,7 @@ RC BTreeIndex::insertAndSplit(BTLeafNode& currNode, PageId& currPid, int eid, in
     currNode.write(currPid, pf);
     siblingNode.write(siblingPid, pf);
     // now we have siblingKey and siblingPid, we can insert it to parent node
-    cout<<"BTreeIndex::insertAndSplit currentPid:"<<currPid<<endl;
+    // cout<<"BTreeIndex::insertAndSplit currentPid:"<<currPid<<endl;
     // if there is no non-leaf node exists, initialize root
     if(treeHeight == 1)
         initializeRoot(currPid, siblingKey, siblingPid);
@@ -176,16 +177,16 @@ RC BTreeIndex::insertAndSplit(BTNonLeafNode& currNode, PageId& currPid, int eid,
     
     readRootAndHeight();
     // now we have midKey and siblingPid, we can insert it to parent node
-    printf("BTreeIndex::insertAndSplit: rootPid = %d\tcurrPid = %d\n",rootPid,currPid);
+    // printf("BTreeIndex::insertAndSplit: rootPid = %d\tcurrPid = %d\n",rootPid,currPid);
     // if we need a new root, initialize a root
     if(currPid == rootPid)
-        initializeRoot(currPid, key, siblingPid);
+        initializeRoot(currPid, midKey, siblingPid);
     currPid = siblingPid;
     key = midKey;
 }
 
 RC BTreeIndex::initializeRoot(const PageId& currPid, int key, const PageId& siblingPid) {
-    cout<<"BTreeIndex::initializeRoot: currPid:"<<currPid<<endl;
+//    cout<<"BTreeIndex::initializeRoot: currPid:"<<currPid<<endl;
     // create a new non-leaf node as root
     BTNonLeafNode rootNode;
     // initialize the root
@@ -202,7 +203,7 @@ RC BTreeIndex::initializeRoot(const PageId& currPid, int key, const PageId& sibl
     int key0;
     PageId pid0;
     testNode.readEntry(0,key0,pid0);
-//    printf("BTreeIndex::initializeRoot: key0 = %d\tpid0 = %d\n",key0, pid0);
+    printf("BTreeIndex::initializeRoot: rootPid = %d\ttreeHeight = %d\n",rootPid, treeHeight);
     writeRootAndHeight();
 }
 
