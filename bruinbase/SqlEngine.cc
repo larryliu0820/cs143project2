@@ -34,6 +34,65 @@ RC SqlEngine::run(FILE* commandline)
   return 0;
 }
 
+vector<SelCond> SqlEngine::getUsefulCond(const vector<SelCond>& cond) {
+    SelCond smaller; //initialize with 0
+    SelCond larger; // initialize with MAX_INT
+    SelCond equal; //initialize -1
+    //initialize
+
+    smaller.value = "-1";
+    larger.value = "2147483647";
+    equal.value = "-1";
+
+    // the vector we are going to return
+    vector<SelCond> usefulCond;
+    // get the boundary value from the query condition
+    for(int i = 0; i < cond.size(); i ++ ){
+        switch(cond[i].comp) {
+            case SelCond::EQ:
+                if (atoi(equal.value) != -1) return usefulCond;
+                equal = cond[i];
+                break;
+            case SelCond::GT:
+            case SelCond::GE: 
+                if(atoi(cond[i].value) > atoi(larger.value)) return usefulCond;
+                if(atoi(cond[i].value) > atoi(smaller.value))
+                    smaller = cond[i];
+                break;
+            case SelCond::LT:
+            case SelCond::LE:
+                if(atoi(cond[i].value) < atoi(smaller.value)) return usefulCond;
+                if(atoi(cond[i].value) < atoi(larger.value))
+                    larger = cond[i];
+                break;
+        }
+        if (atoi(equal.value) != -1) {
+            if (atoi(larger.value) != INT_MAX) {
+                if (atoi(equal.value) > atoi(larger.value)) return usefulCond;
+            }
+
+            if (atoi(smaller.value) != -1) {
+                if (atoi(equal.value) < atoi(smaller.value)) return usefulCond;
+            }
+        }
+    }
+    if (atoi(equal.value) != -1) {   //if condition satisfies when there is no condition in query
+        usefulCond.push_back(equal);
+    } else {
+        if (cond.size() == 1) {
+            if(cond[0].comp == SelCond::GT || cond[0].comp == SelCond::GE)
+                usefulCond.push_back(smaller);
+            else if(cond[0].comp == SelCond::LT || cond[0].comp == SelCond::LE)
+                usefulCond.push_back(larger);
+        }
+        else {
+            usefulCond.push_back(smaller);
+            usefulCond.push_back(larger);
+        }
+    }
+    return usefulCond;
+}
+
 RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
     RecordFile rf;   // RecordFile containing the table
@@ -46,7 +105,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     string value;
     int    count;
     int    diff=1;
-    int    entry;
     
     // open the table file
     if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
@@ -58,144 +116,45 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     if (idx.open(table + ".idx", 'r')==0) {
         
         vector<SelCond> usefulCond;
-        SelCond smaller; //initialize with 0
-        SelCond larger; // initialize with MAX_INT
-        SelCond equal; //initialize -1
-        //initialize
-        
-        smaller.value = "-1";
-        larger.value = "2147483647";
-        equal.value = "-1";
         if (cond.size() == 0)
         {
             idx.locate(0, cursor);
+            usefulCond = cond;
             goto condition_check;
         }
-        
-        // get the boundary value from the query condition
-        for(int i = 0; i < cond.size(); i ++ ){
-            //        if(i < 2)
-            //        {
-            //            if(cond[i].comp == SelCond::GT|| cond[i].comp == SelCond::GE)
-            //                // set smaller to cond[0]
-            //                smaller = cond[i];
-            //            if (cond[i].comp == SelCond::LT|| cond[i].comp == SelCond::LE)
-            //                // set larger to cond[0]
-            //                larger = cond[i];
-            //        }
-            if (cond[i].comp == SelCond::EQ) {
-                if (atoi(equal.value) != -1) {
-                    fprintf(stderr, "Error: Invalid query\n");
-                    return RC_NO_SUCH_RECORD;
-                }
-                equal = cond[i];
-            }
-            if(atoi(cond[i].value) > atoi(larger.value)){
-                // check cond[i].comp is smaller or not
-                if(cond[i].comp == SelCond::GT || cond[i].comp == SelCond::GE){
-                    // query is wrong
-                    fprintf(stderr, "Error: Invalid query\n");
-                    return RC_NO_SUCH_RECORD;
-                }
-            }
-            if(atoi(cond[i].value) < atoi(smaller.value)){
-                // check cond[i].comp is larger or not
-                if(cond[i].comp == SelCond::LT || cond[i].comp == SelCond::LE){
-                    // query is wrong
-                    fprintf(stderr, "Error: Invalid query\n");
-                    return RC_NO_SUCH_RECORD;
-                }
-            }
-            if(atoi(cond[i].value) < atoi(larger.value)){
-                // check cond[i].comp is smaller or not
-                if(cond[i].comp == SelCond::LT || cond[i].comp == SelCond::LE)
-                    // update larger
-                    larger = cond[i];
-            }
-            if(atoi(cond[i].value) > atoi(smaller.value)){
-                // check cond[i].comp is larger or not
-                if(cond[i].comp == SelCond::GT || cond[i].comp == SelCond::GE)
-                    // update smaller
-                    smaller = cond[i];
-            }
-            /*bool isValid = checkValidCond(smaller,larger,equal);
-            if (!isValid) {
-                fprintf(stderr, "Error: Invalid query\n");
-                return RC_NO_SUCH_RECORD;
-            }*/
-        }
-        if (atoi(equal.value) != -1) {   //if condition satisfies when there is no condition in query
-            usefulCond.push_back(equal);
-        } else {
-            if (cond.size() == 1) {
-                if(cond[0].comp == SelCond::GT || cond[0].comp == SelCond::GE)
-                    usefulCond.push_back(smaller);
-                else if(cond[0].comp == SelCond::LT || cond[0].comp == SelCond::LE)
-                    usefulCond.push_back(larger);
-            }
-            else {
-                usefulCond.push_back(smaller);
-                usefulCond.push_back(larger);
-            }
-        }
-        
+        // parse the conditions and return useful conditions
+        usefulCond = getUsefulCond(cond);
+        // if usefulCond == 0, the query is invalid
+        if(usefulCond.size() == 0)
+            goto exit_select;
         
         if (usefulCond.size() == 1)
         {
             switch (usefulCond[0].comp) {
                 case SelCond::EQ:
-                    idx.locate(atoi(equal.value), cursor);
+                case SelCond::GT:
+                case SelCond::GE:
+                    idx.locate(atoi(usefulCond[0].value), cursor);
                     break;
                 case SelCond::NE:
-                    idx.locate(0, cursor);
-                    break;
-                case SelCond::GT:
-                    idx.locate(atoi(smaller.value), cursor);
-                    break;
-                case SelCond::GE:
-                    idx.locate(atoi(smaller.value), cursor);
-                    break;
+                case SelCond::LE:
                 case SelCond::LT:
                     idx.locate(0, cursor);
                     break;
-                case SelCond::LE:
-                    idx.locate(0, cursor);
-                    break;
             }
-        }
-        
-        else if(usefulCond.size() > 1)
-        {
-            if (usefulCond[0].comp == SelCond::EQ || usefulCond[1].comp == SelCond::EQ) {
-                idx.locate(atoi(equal.value), cursor);
-            }
-            else
-                idx.locate(atoi(smaller.value), cursor);
-        }
-    condition_check:
+        }else if(usefulCond.size() > 1)
+            idx.locate(atoi(usefulCond[0].value), cursor);
+condition_check:
         while ((idx.readForward(cursor, key, rid)) == 0) {
-            
-            //printf("key = %d\n", key);
             // check the conditions on the tuple
             for (unsigned i = 0; i < usefulCond.size(); i++) {
                 // compute the difference between the tuple value and the condition value
-                switch (usefulCond[i].attr) {
-                    case 1:
-                        //printf("keyTofind = %d\n", atoi(cond[i].value));
-                        diff = key - atoi(usefulCond[i].value);
-                        //printf("diff = %d\n", diff);
-                        break;
-                    case 2:
-                        diff = strcmp(value.c_str(), usefulCond[i].value);
-                        break;
-                }
-                
-                //cout<<"comparision = "<<cond[i].comp<<endl;
+                diff = key - atoi(usefulCond[i].value);
                 // check the condition
                 switch (usefulCond[i].comp) {
                     case SelCond::EQ:
                         if (diff != 0) {
-                            if (usefulCond[i].attr == 1) goto end_find;
+                            if (cond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         goto find_match;
@@ -203,9 +162,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                         if (diff == 0) continue;
                         break;
                     case SelCond::GT:
-                        //printf("diff = %d\n", diff);
                         if (diff <= 0) continue;
-                        //printf("key = %d\n", key);
                         break;
                     case SelCond::LT:
                         if (diff >= 0) {
@@ -227,7 +184,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             //cout<<"diff = "<<diff<<endl;
             //if (diff == 0) continue;
             //cout<<"count = "<<count<<endl;
-        find_match:
+find_match:
             count++;
             switch (attr) {
                 case 1:  // SELECT key
@@ -341,7 +298,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
     ifstream in(loadfile.c_str());
     if(!in.is_open())
     {
-        cout << "Error opening file";
+        cout << "Error opening file"<<endl;
         exit(1);
     }
     string buffer;
@@ -359,19 +316,8 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
             btnode.open(table + ".idx",'w');
             btnode.insert(key,id);
             btnode.close();
-          //look at what RecordId is returned from RecordFile::append()
-          //fprintf(stdout, "RecordId: pid = %d, sid = %d\n", id.pid, id.sid);
-          //fprintf(stdout, "key: %d\n", key);
         }
     }
-    /*BTreeIndex btindex;
-    int key;
-    IndexCursor cursor;
-    btindex.open(table+ ".idx",'w');
-    for (key=1; key<=5; key++) {
-        btindex.locate(key,cursor);
-        printf("SqlEngine::load: key=%d\tcursor.pid=%d\tcursor.eid=%d\n",key,cursor.pid,cursor.eid);
-    }*/
     rf->close();
     
   return 0;
