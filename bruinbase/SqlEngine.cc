@@ -177,25 +177,25 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             
             //printf("key = %d\n", key);
             // check the conditions on the tuple
-            for (unsigned i = 0; i < cond.size(); i++) {
+            for (unsigned i = 0; i < usefulCond.size(); i++) {
                 // compute the difference between the tuple value and the condition value
-                switch (cond[i].attr) {
+                switch (usefulCond[i].attr) {
                     case 1:
                         //printf("keyTofind = %d\n", atoi(cond[i].value));
-                        diff = key - atoi(cond[i].value);
+                        diff = key - atoi(usefulCond[i].value);
                         //printf("diff = %d\n", diff);
                         break;
                     case 2:
-                        diff = strcmp(value.c_str(), cond[i].value);
+                        diff = strcmp(value.c_str(), usefulCond[i].value);
                         break;
                 }
                 
                 //cout<<"comparision = "<<cond[i].comp<<endl;
                 // check the condition
-                switch (cond[i].comp) {
+                switch (usefulCond[i].comp) {
                     case SelCond::EQ:
                         if (diff != 0) {
-                            if (cond[i].attr == 1) goto end_find;
+                            if (usefulCond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         goto find_match;
@@ -209,7 +209,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                         break;
                     case SelCond::LT:
                         if (diff >= 0) {
-                            if (cond[i].attr == 1) goto end_find;
+                            if (usefulCond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         break;
@@ -218,7 +218,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                         break;
                     case SelCond::LE:
                         if (diff > 0) {
-                            if (cond[i].attr == 1) goto end_find;
+                            if (usefulCond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         break;
