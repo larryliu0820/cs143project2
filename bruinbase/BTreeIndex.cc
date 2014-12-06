@@ -149,12 +149,10 @@ RC BTreeIndex::insertAndSplit(BTLeafNode& currNode, PageId& currPid, int eid, in
     currNode.insertAndSplit(key, rid, eid, siblingNode, siblingKey);
     // set the next pointer of currNode to siblingNode
     currNode.setNextNodePtr(siblingPid);
-     //cout<<"BTreeIndex::insertAndSplit nextPid:"<<siblingPid<<endl;
+     //cout<<"BTreeIndex::insertAndSplit currentPid:"<<currPid<<endl;
     // write changes to file
     currNode.write(currPid, pf);
     siblingNode.write(siblingPid, pf);
-    //cout<<"BTreeIndex::insertAndSplit nextNodePtr:"<<currNode.getNextNodePtr()<<endl;
-
     // now we have siblingKey and siblingPid, we can insert it to parent node
     // cout<<"BTreeIndex::insertAndSplit currentPid:"<<currPid<<endl;
     // if there is no non-leaf node exists, initialize root
@@ -357,6 +355,6 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
         //cout<<"BTreeIndex::readForward: nextnodeptr = "<<currNode.getNextNodePtr()<<endl;
         cursor.pid = currNode.getNextNodePtr();
     }
-
+    
     return 0;
 }

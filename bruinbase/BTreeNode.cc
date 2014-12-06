@@ -147,7 +147,7 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid, int eid,
 	// get the location of the half point of the old node
 	char *halfPtr = entryPtr(halfCount);
 	// copy the second half to the new node
-	size_t secondSize = (MAX_KEY_NUM - halfCount) * (sizeof(int) + sizeof(RecordId));
+	size_t secondSize = (MAX_KEY_NUM - halfCount) * (sizeof(int) + sizeof(RecordId)) + sizeof(PageId);
 	memcpy(sibling.entryPtr(0), halfPtr, secondSize);
 	// copy next node pointer to half point of the old node
 	memcpy(halfPtr, entryPtr(MAX_KEY_NUM), sizeof(int));
@@ -217,7 +217,7 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
 	// read key first, then rid
 	memcpy(&rid, ptr, sizeof(RecordId));
 	memcpy(&key, ptr + sizeof(RecordId), sizeof(int));
-    printf("BTLeafNode::readEntry: eid=%d\tkey=%d\n", eid, key);
+    //printf("BTLeafNode::readEntry: eid=%d\tkey=%d\n", eid, key);
 	return 0; 
 }
 
@@ -378,7 +378,7 @@ RC BTNonLeafNode::readEntry(int eid, int& key, PageId& pid)
 	// read pid first, then key
 	memcpy(&pid, ptr - sizeof(PageId), sizeof(PageId));
 	memcpy(&key, ptr, sizeof(int));
-    printf("BTNonLeafNode::readEntry: eid=%d\tpid=%d\tkey=%d\n", eid, pid, key);
+    //printf("BTNonLeafNode::readEntry: eid=%d\tpid=%d\tkey=%d\n", eid, pid, key);
 	return 0; 
 }
 
@@ -474,7 +474,7 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid, int& eid)
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
 {
-    printf("BTNonLeafNode::initializeRoot: pid1=%d\tkey=%d\tpid2=%d\n",pid1,key,pid2);
+    //printf("BTNonLeafNode::initializeRoot: pid1=%d\tkey=%d\tpid2=%d\n",pid1,key,pid2);
 	// set the key count to 1
 	setKeyCount(1);
 	// get the location of the first entry

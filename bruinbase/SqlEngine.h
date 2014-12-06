@@ -67,9 +67,6 @@ class SqlEngine {
    * @return error code. 0 if no error
    */
   static RC parseLoadLine(const std::string& line, int& key, std::string& value);
-    
-
-    static bool checkValidCond(SelCond smaller, SelCond larger, SelCond equal);
 };
 
 #endif /* SQLENGINE_H */

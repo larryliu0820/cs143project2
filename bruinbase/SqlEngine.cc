@@ -34,21 +34,6 @@ RC SqlEngine::run(FILE* commandline)
   return 0;
 }
 
-bool SqlEngine::checkValidCond(SelCond smaller, SelCond larger, SelCond equal) {
-    bool isValid = true;
-    if (atoi(equal.value) == -1) {
-        return isValid;
-    }
-    // check if smaller, larger, equal each has value
-    if (atoi(larger.value) != INT_MAX) {
-        isValid = atoi(equal.value) <= atoi(larger.value);
-    }
-    
-    if (atoi(smaller.value) != -1) {
-        isValid = atoi(equal.value) >= atoi(smaller.value);
-    }
-    return isValid;
-}
 RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
     RecordFile rf;   // RecordFile containing the table
@@ -61,6 +46,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     string value;
     int    count;
     int    diff=1;
+    int    entry;
     
     // open the table file
     if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
@@ -76,7 +62,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         SelCond larger; // initialize with MAX_INT
         SelCond equal; //initialize -1
         //initialize
-
+        
         smaller.value = "-1";
         larger.value = "2147483647";
         equal.value = "-1";
@@ -132,11 +118,11 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                     // update smaller
                     smaller = cond[i];
             }
-            bool isValid = checkValidCond(smaller,larger,equal);
+            /*bool isValid = checkValidCond(smaller,larger,equal);
             if (!isValid) {
                 fprintf(stderr, "Error: Invalid query\n");
                 return RC_NO_SUCH_RECORD;
-            }
+            }*/
         }
         if (atoi(equal.value) != -1) {   //if condition satisfies when there is no condition in query
             usefulCond.push_back(equal);
@@ -152,7 +138,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                 usefulCond.push_back(larger);
             }
         }
-
+        
         
         if (usefulCond.size() == 1)
         {
@@ -189,25 +175,24 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     condition_check:
         while ((idx.readForward(cursor, key, rid)) == 0) {
             
-            //printf("cursor.eid = %d\n", cursor.eid);
             //printf("key = %d\n", key);
             // check the conditions on the tuple
-            for (unsigned i = 0; i < usefulCond.size(); i++) {
+            for (unsigned i = 0; i < cond.size(); i++) {
                 // compute the difference between the tuple value and the condition value
-                //switch (usefulCond[i].attr) {
-                    //case 1:
+                switch (cond[i].attr) {
+                    case 1:
                         //printf("keyTofind = %d\n", atoi(cond[i].value));
-                        diff = key - atoi(usefulCond[i].value);
+                        diff = key - atoi(cond[i].value);
                         //printf("diff = %d\n", diff);
-                        //break;
-                    //case 2:
-                        //diff = strcmp(value.c_str(), usefulCond[i].value);
-                        //break;
-                //}
+                        break;
+                    case 2:
+                        diff = strcmp(value.c_str(), cond[i].value);
+                        break;
+                }
                 
                 //cout<<"comparision = "<<cond[i].comp<<endl;
                 // check the condition
-                switch (usefulCond[i].comp) {
+                switch (cond[i].comp) {
                     case SelCond::EQ:
                         if (diff != 0) {
                             if (cond[i].attr == 1) goto end_find;
@@ -224,7 +209,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                         break;
                     case SelCond::LT:
                         if (diff >= 0) {
-                            if (usefulCond[i].attr == 1) goto end_find;
+                            if (cond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         break;
@@ -233,7 +218,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
                         break;
                     case SelCond::LE:
                         if (diff > 0) {
-                            if (usefulCond[i].attr == 1) goto end_find;
+                            if (cond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         break;
@@ -356,7 +341,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
     ifstream in(loadfile.c_str());
     if(!in.is_open())
     {
-        cout << "Error opening file"<<endl;
+        cout << "Error opening file";
         exit(1);
     }
     string buffer;
@@ -382,7 +367,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
     /*BTreeIndex btindex;
     int key;
     IndexCursor cursor;
-    btindex.open(table+ ".index",'w');
+    btindex.open(table+ ".idx",'w');
     for (key=1; key<=5; key++) {
         btindex.locate(key,cursor);
         printf("SqlEngine::load: key=%d\tcursor.pid=%d\tcursor.eid=%d\n",key,cursor.pid,cursor.eid);
