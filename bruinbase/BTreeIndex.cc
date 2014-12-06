@@ -85,7 +85,7 @@ RC BTreeIndex::readRootAndHeight() {
     // copy root pid and tree height
     memcpy(&rootPid, buffer, sizeof(PageId));
     memcpy(&treeHeight, buffer + sizeof(PageId), sizeof(int));
-    cout<<"BTreeIndex::readRootAndHeight: rootPid="<<rootPid<<"\ttreeHeight="<<treeHeight<<endl;
+    //cout<<"BTreeIndex::readRootAndHeight: rootPid="<<rootPid<<"\ttreeHeight="<<treeHeight<<endl;
     return 0;
 }
 
@@ -109,9 +109,9 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     RC rc;
     char page[PageFile::PAGE_SIZE];
     PageId nextPid = pf.endPid();
-    printf("nextpid = %d\n",nextPid);
+    //printf("nextpid = %d\n",nextPid);
     if(nextPid == 1) {// the index file is empty, need initialization
-        printf("inserting key=%d\n",key);
+        //printf("inserting key=%d\n",key);
         // update rootPid and treeHeight
         rootPid = nextPid;
         treeHeight = 1;
@@ -124,13 +124,13 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
         // update rootPid and treeHeight to file
         rc = writeRootAndHeight();
         // testing read from .tbl
-        printf("key count = %d\n", rootNode.getKeyCount());
+        //printf("key count = %d\n", rootNode.getKeyCount());
         // read keys
         for (int i = 0; i < rootNode.getKeyCount(); i ++) {
             int key;
             RecordId rid;
             rootNode.readEntry(i, key, rid);
-            cout<<i<<"th entry: \t"<<"key = "<<key<<"\trecordId.pid = "<<rid.pid<<"\trecordId.sid"<<rid.sid<<endl;
+            //cout<<i<<"th entry: \t"<<"key = "<<key<<"\trecordId.pid = "<<rid.pid<<"\trecordId.sid"<<rid.sid<<endl;
         }
         return 0;
     }
@@ -149,10 +149,12 @@ RC BTreeIndex::insertAndSplit(BTLeafNode& currNode, PageId& currPid, int eid, in
     currNode.insertAndSplit(key, rid, eid, siblingNode, siblingKey);
     // set the next pointer of currNode to siblingNode
     currNode.setNextNodePtr(siblingPid);
-     //cout<<"BTreeIndex::insertAndSplit currentPid:"<<currPid<<endl;
+     //cout<<"BTreeIndex::insertAndSplit nextPid:"<<siblingPid<<endl;
     // write changes to file
     currNode.write(currPid, pf);
     siblingNode.write(siblingPid, pf);
+    //cout<<"BTreeIndex::insertAndSplit nextNodePtr:"<<currNode.getNextNodePtr()<<endl;
+
     // now we have siblingKey and siblingPid, we can insert it to parent node
     // cout<<"BTreeIndex::insertAndSplit currentPid:"<<currPid<<endl;
     // if there is no non-leaf node exists, initialize root
@@ -203,13 +205,13 @@ RC BTreeIndex::initializeRoot(const PageId& currPid, int key, const PageId& sibl
     int key0;
     PageId pid0;
     testNode.readEntry(0,key0,pid0);
-    printf("BTreeIndex::initializeRoot: rootPid = %d\ttreeHeight = %d\n",rootPid, treeHeight);
+    //printf("BTreeIndex::initializeRoot: rootPid = %d\ttreeHeight = %d\n",rootPid, treeHeight);
     writeRootAndHeight();
 }
 
 RC BTreeIndex::recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pid, int level)
 {
-    printf("inserting key=%d\n",searchKey);
+    //printf("inserting key=%d\n",searchKey);
     RC rc;
     // store current pid
     PageId currPid = pid;
@@ -222,12 +224,12 @@ RC BTreeIndex::recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pi
         // find eid
         int eid;
         leafNode.locate(searchKey, eid);
-        printf("BTreeIndex::recursivelyInsert:eid=%d,\tsearchKey=%d\tKeycount = %d\n",eid,searchKey,leafNode.getKeyCount());
+        //printf("BTreeIndex::recursivelyInsert:eid=%d,\tsearchKey=%d\tKeycount = %d\n",eid,searchKey,leafNode.getKeyCount());
         // insert the key
         if(leafNode.getKeyCount() == BTLeafNode::MAX_KEY_NUM) {
             // need to split
             insertAndSplit(leafNode, pid, eid, searchKey, rid);
-            printf("BTreeIndex::recursivelyInsert: siblingPid=%d\tsearchKey=%d\n", pid, searchKey);
+            //printf("BTreeIndex::recursivelyInsert: siblingPid=%d\tsearchKey=%d\n", pid, searchKey);
             // read rootPid
             //readRootAndHeight();
             // if this level is full, return rc
@@ -247,7 +249,7 @@ RC BTreeIndex::recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pi
     // locate child pointer
     int eid;
     rc = nonleafNode.locateChildPtr(searchKey, pid, eid);
-    printf("BTreeIndex::recursivelyInsert: pid=%d\teid=%d\tsearchKey = %d\tlevel = %d\n",pid,eid,searchKey, level - 1);
+    //printf("BTreeIndex::recursivelyInsert: pid=%d\teid=%d\tsearchKey = %d\tlevel = %d\n",pid,eid,searchKey, level - 1);
     // recursively go down a level
     rc = recursivelyInsert(searchKey, rid, pid, level - 1);
     // check if the next level is full
@@ -257,19 +259,19 @@ RC BTreeIndex::recursivelyInsert(int& searchKey, const RecordId& rid, PageId& pi
             PageId tempPid;
             //we don't need the return value of tempPid
             nonleafNode.locateChildPtr(searchKey,tempPid,eid);
-            printf("BTreeIndex::recursivelyInsert: Merge: searchKey=%d\tcurrPid=%d\teid=%d\n",searchKey,currPid,eid);
+            //printf("BTreeIndex::recursivelyInsert: Merge: searchKey=%d\tcurrPid=%d\teid=%d\n",searchKey,currPid,eid);
             // need to split
             insertAndSplit(nonleafNode, currPid, eid, searchKey, pid);
             pid = currPid;
             // if this level is full, return rc
             return RC_NODE_FULL;
         } else {
-            printf("BTreeIndex::recursivelyInsert: pid=%d\tsearchKey = %d\tlevel = %d\n",pid,searchKey, level);
+            //printf("BTreeIndex::recursivelyInsert: pid=%d\tsearchKey = %d\tlevel = %d\n",pid,searchKey, level);
             // insert
             nonleafNode.insert(searchKey, pid);
             // write changes to file
             nonleafNode.write(currPid, pf);
-            cout<<"BTreeIndex::recursivelyInsert:exit"<<endl;
+            //cout<<"BTreeIndex::recursivelyInsert:exit"<<endl;
             return 0;
         }
     } else
@@ -336,11 +338,25 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
  */
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
+    //cout<<"BTreeIndex::readForward: cursor.eid = "<<cursor.eid<<endl;
     RC rc;
     // read the page as a leaf node
     BTLeafNode currNode;
     if((rc = currNode.read(cursor.pid, pf)) < 0) return rc;
+    
+    if (cursor.pid == 0) {
+        return RC_END_OF_TREE;
+    }
     // read the entry with eid
     if((rc = currNode.readEntry(cursor.eid, key, rid)) < 0) return rc;
+    
+    if (cursor.eid < currNode.getKeyCount()-1) {
+        cursor.eid++;
+    } else {
+        cursor.eid = 0;
+        //cout<<"BTreeIndex::readForward: nextnodeptr = "<<currNode.getNextNodePtr()<<endl;
+        cursor.pid = currNode.getNextNodePtr();
+    }
+
     return 0;
 }
