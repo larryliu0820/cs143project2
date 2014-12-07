@@ -305,7 +305,6 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 //    printf("BTreeIndex::locate: rootPid=%d\n",rootPid);
     // read the root node into buffer
     char page[PageFile::PAGE_SIZE];
-
     int currLevel = 1;
     for(; currLevel <= treeHeight; currLevel++) {
         // now cursor.pid is the pid of a node at nth level

@@ -13,6 +13,7 @@
 #include <vector>
 #include "Bruinbase.h"
 #include "RecordFile.h"
+#include "BTreeIndex.h"
 
 /**
  * data structure to represent a condition in the WHERE clause
@@ -70,6 +71,7 @@ class SqlEngine {
     
 
   static std::vector<SelCond> getUsefulCond(const std::vector<SelCond>& cond);
+    static RC getStartEntry(const std::vector<SelCond>& usefulCond, BTreeIndex& idx, IndexCursor& cursor);
 };
 
 #endif /* SQLENGINE_H */

@@ -38,11 +38,13 @@ vector<SelCond> SqlEngine::getUsefulCond(const vector<SelCond>& cond) {
     SelCond smaller; //initialize with 0
     SelCond larger; // initialize with MAX_INT
     SelCond equal; //initialize -1
+    SelCond inequal;// initialize with -1
     //initialize
 
     smaller.value = "-1";
     larger.value = "2147483647";
     equal.value = "-1";
+    inequal.value = "-1";
 
     // the vector we are going to return
     vector<SelCond> usefulCond;
@@ -52,6 +54,9 @@ vector<SelCond> SqlEngine::getUsefulCond(const vector<SelCond>& cond) {
             case SelCond::EQ:
                 if (atoi(equal.value) != -1) return usefulCond;
                 equal = cond[i];
+                break;
+            case SelCond::NE:
+                inequal = cond[i];
                 break;
             case SelCond::GT:
             case SelCond::GE: 
@@ -66,17 +71,19 @@ vector<SelCond> SqlEngine::getUsefulCond(const vector<SelCond>& cond) {
                     larger = cond[i];
                 break;
         }
-        if (atoi(equal.value) != -1) {
-            if (atoi(larger.value) != INT_MAX) {
-                if (atoi(equal.value) > atoi(larger.value)) return usefulCond;
-            }
-
-            if (atoi(smaller.value) != -1) {
-                if (atoi(equal.value) < atoi(smaller.value)) return usefulCond;
-            }
-        }
+        
     }
-    if (atoi(equal.value) != -1) {   //if condition satisfies when there is no condition in query
+    if (atoi(equal.value) != -1) {
+        // key = x and key < x-1
+        if (atoi(larger.value) != INT_MAX) {
+            if (atoi(equal.value) > atoi(larger.value)) return usefulCond;
+        }
+        // key = x and key > x+1
+        if (atoi(smaller.value) != -1) {
+            if (atoi(equal.value) < atoi(smaller.value)) return usefulCond;
+        }
+        // key = x and key <> x, invalid
+        if (atoi(equal.value) == atoi(inequal.value)) return usefulCond;
         usefulCond.push_back(equal);
     } else {
         if (cond.size() == 1) {
@@ -84,13 +91,53 @@ vector<SelCond> SqlEngine::getUsefulCond(const vector<SelCond>& cond) {
                 usefulCond.push_back(smaller);
             else if(cond[0].comp == SelCond::LT || cond[0].comp == SelCond::LE)
                 usefulCond.push_back(larger);
+            else if(cond[0].comp == SelCond::NE)
+                usefulCond.push_back(inequal);
         }
         else {
             usefulCond.push_back(smaller);
             usefulCond.push_back(larger);
+            usefulCond.push_back(inequal);
         }
     }
     return usefulCond;
+}
+
+RC SqlEngine::getStartEntry(const vector<SelCond>& usefulCond, BTreeIndex& idx, IndexCursor& cursor) {
+    // if usefulCond == 0, the query is invalid
+    if(usefulCond.size() == 0)
+        return RC_NO_SUCH_RECORD;
+    int key;
+    RecordId rid;
+    RC rc;
+    
+    if (usefulCond.size() == 1)
+    {
+        switch (usefulCond[0].comp) {
+            case SelCond::EQ:
+            case SelCond::GE:
+                idx.locate(atoi(usefulCond[0].value), cursor);
+                break;
+            case SelCond::GT:
+                rc = idx.locate(atoi(usefulCond[0].value), cursor);
+                if (rc == 0) { // key exists
+                    idx.readForward(cursor, key, rid);
+                }
+                break;
+            case SelCond::NE:
+            case SelCond::LE:
+            case SelCond::LT:
+                idx.locate(0, cursor);
+                break;
+        }
+    }else if(usefulCond.size() > 1)
+    {
+        rc = idx.locate(atoi(usefulCond[0].value), cursor);
+        if (usefulCond[0].comp == SelCond::GT && rc == 0) {
+            idx.readForward(cursor,key,rid);
+        }
+    }
+    return 0;
 }
 
 RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
@@ -112,9 +159,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         return rc;
     }
     count = 0;
-    
     if (idx.open(table + ".idx", 'r')==0) {
-        
         vector<SelCond> usefulCond;
         if (cond.size() == 0)
         {
@@ -122,28 +167,14 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             usefulCond = cond;
             goto condition_check;
         }
+        
         // parse the conditions and return useful conditions
         usefulCond = getUsefulCond(cond);
-        // if usefulCond == 0, the query is invalid
-        if(usefulCond.size() == 0)
-            goto exit_select;
+        // get the start entry
+        rc = getStartEntry(usefulCond, idx, cursor);
+       
+        if (rc < 0) goto exit_select;
         
-        if (usefulCond.size() == 1)
-        {
-            switch (usefulCond[0].comp) {
-                case SelCond::EQ:
-                case SelCond::GT:
-                case SelCond::GE:
-                    idx.locate(atoi(usefulCond[0].value), cursor);
-                    break;
-                case SelCond::NE:
-                case SelCond::LE:
-                case SelCond::LT:
-                    idx.locate(0, cursor);
-                    break;
-            }
-        }else if(usefulCond.size() > 1)
-            idx.locate(atoi(usefulCond[0].value), cursor);
 condition_check:
         while ((idx.readForward(cursor, key, rid)) == 0) {
             // check the conditions on the tuple
@@ -154,15 +185,12 @@ condition_check:
                 switch (usefulCond[i].comp) {
                     case SelCond::EQ:
                         if (diff != 0) {
-                            if (cond[i].attr == 1) goto end_find;
+                            if (usefulCond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         goto find_match;
                     case SelCond::NE:
-                        if (diff == 0) continue;
-                        break;
-                    case SelCond::GT:
-                        if (diff <= 0) continue;
+                        if (diff == 0) goto condition_check;
                         break;
                     case SelCond::LT:
                         if (diff >= 0) {
@@ -170,20 +198,17 @@ condition_check:
                             else continue;
                         }
                         break;
-                    case SelCond::GE:
-                        if (diff < 0) continue;
-                        break;
                     case SelCond::LE:
                         if (diff > 0) {
                             if (usefulCond[i].attr == 1) goto end_find;
                             else continue;
                         }
                         break;
+                    default:
+                        break;
                 }
             }
-            //cout<<"diff = "<<diff<<endl;
-            //if (diff == 0) continue;
-            //cout<<"count = "<<count<<endl;
+
 find_match:
             count++;
             switch (attr) {
@@ -207,8 +232,6 @@ find_match:
             }
         }
     }
-    
-    
     else{
         // scan the table file from the beginning
         rid.pid = rid.sid = 0;

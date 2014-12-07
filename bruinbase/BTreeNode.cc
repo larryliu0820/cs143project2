@@ -197,7 +197,7 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 		readEntry(++eid, tempKey, rid);
        //printf("BTLeafNode::locate tempKey = %d,\teid=%d\n", tempKey,eid);
 	}
-	if(eid == keyCount)
+	if(eid == keyCount || tempKey != searchKey)
 		return RC_NO_SUCH_RECORD;
 	// if no key is larger than searchKey, return 
 	return 0;
