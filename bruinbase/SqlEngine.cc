@@ -158,7 +158,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     int    diff=1;
     
     // when attr = 2 or attr = 3, open the table file
-    if(attr == 2 && attr == 3) {
+    if(attr == 2 || attr == 3) {
         if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
             fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
             return rc;
