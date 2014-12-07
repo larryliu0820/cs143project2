@@ -167,9 +167,13 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         vector<SelCond> usefulCond;
         if (cond.size() == 0)
         {
-            idx.locate(0, cursor);
-            usefulCond = cond;
-            goto condition_check;
+            if (attr != 4)  goto scan;
+            else
+            {
+                idx.locate(0, cursor);
+                usefulCond = cond;
+                goto condition_check;
+            }
         }
         
         // parse the conditions and return useful conditions
@@ -234,6 +238,7 @@ find_match:
         }
     }
     else{
+    scan:
         // scan the table file from the beginning
         rid.pid = rid.sid = 0;
         
